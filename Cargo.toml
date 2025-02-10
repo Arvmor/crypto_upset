@@ -1,0 +1,8 @@
+[package]
+name = "crypto_upset"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+alloy = "0.11.0"
+ggez = "0.9.3"
