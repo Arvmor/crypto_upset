@@ -1,5 +1,8 @@
 #![feature(random)]
-use alloy::primitives::{keccak256, B256};
+use alloy::{
+    primitives::{keccak256, B256},
+    sol_types::SolValue,
+};
 use ggez::{
     conf::WindowMode,
     event::{self, EventHandler},
@@ -42,7 +45,7 @@ struct MyGame {
     has_job: Arc<RwLock<bool>>,
     has_house: bool,
     has_car: bool,
-    money: Arc<RwLock<f32>>,
+    money: Arc<RwLock<f64>>,
     will_to_live: u8,
     happiness: u8,
     sleep: u8,
@@ -64,13 +67,14 @@ impl MyGame {
 }
 
 fn mine(game: &MyGame) {
-    let i = format!("{}{}", *game.genesis.read().unwrap(), random::<u128>());
-    let hash = keccak256(&i);
+    let i = random::<u128>();
+    let packed = SolValue::abi_encode_packed(&(*game.genesis.read().unwrap(), i));
+    let hash = keccak256(packed);
 
     if hash[..2] == [0; 2] {
-        println!("Found a match! Hash: {} and {}", hash, i);
+        println!("Found a match! Hash: {} and {:?}", hash, i);
         *game.genesis.write().unwrap() = hash;
-        *game.money.write().unwrap() += 1.0;
+        *game.money.write().unwrap() += 0.01;
     }
 }
 
