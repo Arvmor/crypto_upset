@@ -1505,6 +1505,7 @@ name = "crypto_upset"
 version = "0.1.0"
 dependencies = [
  "alloy",
+ "dotenv",
  "ggez",
  "tokio",
 ]
@@ -1649,6 +1650,12 @@ checksum = "330c60081dcc4c72131f8eb70510f1ac07223e5d4163db481a04a0befcffa412"
 dependencies = [
  "libloading 0.8.6",
 ]
+
+[[package]]
+name = "dotenv"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77c90badedccf4105eca100756a0b1289e191f6fcbdadd3cee1d2f614f97da8f"
 
 [[package]]
 name = "downcast-rs"

@@ -1,8 +1,13 @@
 #![feature(random)]
 use alloy::{
-    primitives::{keccak256, B256},
+    network::EthereumWallet,
+    primitives::{keccak256, Address, B256, U256},
+    providers::ProviderBuilder,
+    signers::local::PrivateKeySigner,
+    sol,
     sol_types::SolValue,
 };
+use dotenv::dotenv;
 use ggez::{
     conf::WindowMode,
     event::{self, EventHandler},
@@ -11,12 +16,22 @@ use ggez::{
     Context, ContextBuilder, GameResult,
 };
 use std::{
+    env::var,
     random::random,
+    str::FromStr,
     sync::{Arc, RwLock},
 };
 
+// Life Contract
+sol!(
+    #[sol(rpc)]
+    "./contract/life.sol"
+);
+
 #[tokio::main]
 async fn main() -> Result<(), ggez::GameError> {
+    dotenv().ok();
+
     // Make a Context.
     let (mut ctx, event_loop) = ContextBuilder::new("Game of (my) Life", "Ærvin")
         .window_mode(WindowMode::default().maximized(true))
@@ -29,9 +44,30 @@ async fn main() -> Result<(), ggez::GameError> {
 
     let cloned_game = my_game.clone();
     tokio::spawn(async move {
+        let rpc_url = var("RPC_URL").unwrap().parse().unwrap();
+        let wallet =
+            EthereumWallet::from(PrivateKeySigner::from_str(&var("PRIVATE_KEY").unwrap()).unwrap());
+        let contract_address = Address::from_str(&var("CONTRACT_ADDRESS").unwrap()).unwrap();
+
+        // Instance
+        let provider = ProviderBuilder::new().wallet(wallet).on_http(rpc_url);
+        let life_contract = Life::new(contract_address, provider);
+        *cloned_game.genesis.write().unwrap() = life_contract
+            .LATEST_HASH()
+            .call()
+            .await
+            .unwrap()
+            .LATEST_HASH;
+
         loop {
             if *cloned_game.has_job.read().unwrap() {
-                mine(&cloned_game);
+                if let Some(number) = mine(&cloned_game) {
+                    life_contract
+                        .setNewHash(U256::from(number))
+                        .send()
+                        .await
+                        .ok();
+                }
             }
         }
     });
@@ -66,7 +102,7 @@ impl MyGame {
     }
 }
 
-fn mine(game: &MyGame) {
+fn mine(game: &MyGame) -> Option<u128> {
     let i = random::<u128>();
     let packed = SolValue::abi_encode_packed(&(*game.genesis.read().unwrap(), i));
     let hash = keccak256(packed);
@@ -75,7 +111,10 @@ fn mine(game: &MyGame) {
         println!("Found a match! Hash: {} and {:?}", hash, i);
         *game.genesis.write().unwrap() = hash;
         *game.money.write().unwrap() += 0.01;
+        return Some(i);
     }
+
+    None
 }
 
 impl EventHandler for MyGame {
